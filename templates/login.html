@@ -1,0 +1,24 @@
+{% extends "index.html" %}
+
+{% block login %}
+
+    {% for catg, message in get_flashed_messages(with_categories=true) %}
+        <div class="alert alert-danger">
+            {{ catg }}<br/>
+            {{ message }}
+        </div>
+    {% endfor %}
+
+    <div id="login-form" class="some-bootstrap-class">
+        <form action="{{ url_for('login') }}" method="POST">
+            {% if prev_username %}
+                <input type="text" name="username" value="{{ prev_username }}" /><br/>                
+            {% else %}
+                <input type="text" name="username" placeholder="Username"/><br/>
+            {% endif %}
+            <input type="password" name="passwd" placeholder="Password"/><br/>
+            <input type="submit" name="submit" value="Proceed" /><br/>
+        </form>
+    </div>
+
+{% endblock %}

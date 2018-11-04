@@ -1,0 +1,32 @@
+<!DOCTYPE html><html>
+<head>
+    <title>Home Page</title>
+    <meta charset="utf-8"/>
+</head>
+<body>
+<div class="container-fluid">
+    <div class="header">
+        <header>AskTheGuide</header>
+        <br/>
+        {% if greeting %}
+        <h2>{{ greeting }}, user</h2>
+        {% endif %}
+    </div>
+    <div id="navbar">
+    <ul>
+        <li><a href="{{ url_for('index') }}">Home</a></li>
+        <li><a href="{{ url_for('login') }}">Log In</a></li>
+        <li><a href="{{ url_for('signup') }}">Sign Up</a></li>
+    </ul>
+    </div>
+    <div class="main">
+        {% block signup %}{% endblock %}
+        {% block login %}{% endblock %}
+    </div>
+
+    <div class="footer" style="margin-top:30%;">
+        <footer class="footer">Made with &lt;/&gt; by Roshan Sharma</footer>
+    </div>
+</div>
+</body>
+</html>
