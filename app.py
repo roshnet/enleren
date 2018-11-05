@@ -22,7 +22,7 @@ app.config['MYSQL_DATABASE_DB'] = 'enleren'
 
 mysql = MySQL()
 mysql.init_app(app)
-
+cursor = mysql.connect().cursor()
 
 @app.route('/')
 @app.route('/index')
@@ -40,23 +40,19 @@ def login():
         passwd = request.form['passwd']
         # add an `if` to abort query execution if non-allowed chars present,
         # thus preventing SQLIA.
-        cursor = mysql.connect().cursor()
-        cursor.execute("SELECT id,name FROM usercreds WHERE username='{}' AND password='{}'"
+        cursor.execute("SELECT id,name FROM usercreds WHERE username='{}' AND password='{}';"
                        .format(username, passwd))
-        data = cursor.fetchone()
-        if data is None:
+        match = cursor.fetchone()
+        if match is None:
             flash('Invalid Credentials.', 'Error')
-            return render_template('login.html', prev_uname=username)
+            return render_template('login.html', title='Log In', prev_uname=username)
         else:
             # using else so that user does NOT login
-            # if by any chance data != None;
-            cursor.execute("SELECT author,body FROM posts;")
-            posts = cursor.fetchall()
-            if posts is not None:
-                return render_template('feed.html', posts=posts)
-            return render_template('feed.html', status='No posts to display.')
+            # if by any chance `match` != None;
+            session['curr_uid'] = username
+            return redirect(url_for('feed'))
 
-    return render_template('login.html')  # only show login fields..
+    return render_template('login.html')  # show login fields on GET..
 
 
 @app.route('/signup', methods=['GET', 'POST'])
@@ -70,19 +66,26 @@ def signup():
         passwd = request.form['passwd']
         response = validate(name, username, passwd)
         if response == 1:
-            return redirect(url_for('members'), code=302)
+            session['curr_uid'] = username
+            return redirect(url_for('feed'), code=302)
         flash('Some fields too short!', 'Invalid')
-        return render_template('signup.html')
+        return render_template('signup.html', title='Sign Up')
 
     if request.method == 'GET':
         return render_template('signup.html')
 
 
-# ending function
-@app.route('/members')
-def members():
-    # `uid` has to be a session variable.
-    return '<h1>Hello, user! You are logged in.</h1>'
+@app.route('/feed', methods=['GET', 'POST'])
+def feed():
+    if session['curr_uid']:
+        cursor.execute("SELECT author,body FROM posts;")
+        posts = cursor.fetchall()
+        if posts is not None:
+            return render_template('feed.html',
+                                    title='Quick Feed',
+                                    posts=posts,
+                                    me=session['curr_uid'])
+        return render_template('feed.html', status='Sorry. No posts to show :(')
 
 
 if __name__ == '__main__':

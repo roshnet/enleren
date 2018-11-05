@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8"/>
-    <title>Quick Feed | Querist</title>
+    <title>{{ title }} | Querist</title>
     <link rel="stylesheet" href="/var/www/html/bootstrap/bs4/css/bootstrap.min.css"/>
 </head>
 <body>
@@ -10,12 +10,19 @@
     <div class="content-area">
     {% if status %}
         <p style="color: #cc0000;">{{ status }}</p>
+        <br/>
+        <a href="#">Add a post here!</a>
     {% endif %}
     {% if posts %}
         {% for post in posts %}
         <p>
-            <i>{{ post[0] }}</i> said:<br/>
+            {% if post[0] == me  %}
+                <i>You</i> said: 
+            {% else %}
+                <i>{{ post[0] }}</i> said: 
+            {% endif %}
             {{ post[1] }}
+            <br/>
         </p>
         <hr style="color: aqua;"/><br/>
         {% endfor %}
