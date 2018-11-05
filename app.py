@@ -23,6 +23,7 @@ app.config['MYSQL_DATABASE_DB'] = 'enleren'
 mysql = MySQL()
 mysql.init_app(app)
 
+
 @app.route('/')
 @app.route('/index')
 def index():
@@ -40,20 +41,20 @@ def login():
         # add an `if` to abort query execution if non-allowed chars present,
         # thus preventing SQLIA.
         cursor = mysql.connect().cursor()
-        cursor.execute("SELECT id,name FROM usercreds WHERE username='{}' AND password='{}'".format(
-                                                                         username, passwd))
+        cursor.execute("SELECT id,name FROM usercreds WHERE username='{}' AND password='{}'"
+                       .format(username, passwd))
         data = cursor.fetchone()
         if data is None:
             flash('Invalid Credentials.', 'Error')
             return render_template('login.html', prev_uname=username)
         else:
-            # using else so that user does NOT login if by any chance data != None;
+            # using else so that user does NOT login
+            # if by any chance data != None;
             cursor.execute("SELECT author,body FROM posts;")
-            posts=cursor.fetchall()
-            if posts is None:
-                return render_template('feed.html', status='No posts to display.')
-            return render_template('feed.html', posts=posts)
-
+            posts = cursor.fetchall()
+            if posts is not None:
+                return render_template('feed.html', posts=posts)
+            return render_template('feed.html', status='No posts to display.')
 
     return render_template('login.html')  # only show login fields..
 
