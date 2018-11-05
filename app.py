@@ -3,7 +3,6 @@ from flask import Flask
 from flask import render_template
 from flask import request
 from flask import redirect
-from flask import flash
 from flask import url_for
 from flask import session
 from flaskext.mysql import MySQL
@@ -18,11 +17,14 @@ app.config['SECRET_KEY'] = 'i4d1fr15s8a14'
 app.config['MYSQL_DATABASE_HOST'] = 'localhost'
 app.config['MYSQL_DATABASE_USER'] = 'root'
 app.config['MYSQL_DATABASE_PASSWORD'] = 'aaaaa'
-app.config['MYSQL_DATABASE_DB'] = 'enleren'
+app.config['MYSQL_DATABASE_DB'] = 'querist'
 
 mysql = MySQL()
 mysql.init_app(app)
-cursor = mysql.connect().cursor()
+# cursor = mysql.connect().cursor()  # original
+
+conn = mysql.connect()
+cursor = conn.cursor()
 
 @app.route('/')
 @app.route('/index')
@@ -44,11 +46,14 @@ def login():
                        .format(username, passwd))
         match = cursor.fetchone()
         if match is None:
-            flash('Invalid Credentials.', 'Error')
-            return render_template('login.html', title='Log In', prev_uname=username)
+            return render_template('login.html',
+                                    title='Log In',
+                                    errmsg='Invalid credentials. Please try again.',
+                                    persist_uname=username)
         else:
             # using else so that user does NOT login
-            # if by any chance `match` != None;
+            # if by any slightest chance `match` != None.
+            # On login success:
             session['curr_uid'] = username
             return redirect(url_for('feed'))
 
@@ -64,12 +69,23 @@ def signup():
         name = request.form['name']
         username = request.form['username']
         passwd = request.form['passwd']
-        response = validate(name, username, passwd)
-        if response == 1:
+        valid = validate(name, username, passwd)
+        if valid == 1:
+            sql = "INSERT INTO usercreds (username,password,name) VALUES (%s,%s,%s);"
+            try:
+                cursor.execute(sql, (username, passwd, name))
+                conn.commit()
+            except Exception as e:
+                return '''
+                Something weird happened. We will soon fix it.<br/>
+                Click <a href="{{url_for('signup')">here</a> to retry.
+                '''
             session['curr_uid'] = username
-            return redirect(url_for('feed'), code=302)
-        flash('Some fields too short!', 'Invalid')
-        return render_template('signup.html', title='Sign Up')
+            return render_template('feed.html', )
+        else:
+            return render_template('signup.html',
+                                    title='Sign Up',
+                                    errmsg='Invalid fields!')
 
     if request.method == 'GET':
         return render_template('signup.html')
@@ -86,6 +102,8 @@ def feed():
                                     posts=posts,
                                     me=session['curr_uid'])
         return render_template('feed.html', status='Sorry. No posts to show :(')
+    return render_template('login.html', errmsg='Please log in to continue.')
+    # if session not defined (or user not logged in):
 
 
 if __name__ == '__main__':
