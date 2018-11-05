@@ -10,9 +10,8 @@ from flaskext.mysql import MySQL
 
 # CUSTOM MODULES
 from extras.greetings import greeting
-from extras.usercreds import usercreds
-from utils import auth
 from utils.validate import validate
+# from utils.db_ops import query
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'i4d1fr15s8a14'
@@ -41,14 +40,22 @@ def login():
         # add an `if` to abort query execution if non-allowed chars present,
         # thus preventing SQLIA.
         cursor = mysql.connect().cursor()
-        cursor.execute("SELECT id FROM usercreds WHERE username='{}' AND password='{}'".format(
+        cursor.execute("SELECT id,name FROM usercreds WHERE username='{}' AND password='{}'".format(
                                                                          username, passwd))
         data = cursor.fetchone()
         if data is None:
-            return 'Incorrect pair!'
-        return 'Logged in successfully!'
+            flash('Invalid Credentials.', 'Error')
+            return render_template('login.html', prev_uname=username)
+        else:
+            # using else so that user does NOT login if by any chance data != None;
+            cursor.execute("SELECT author,body FROM posts;")
+            posts=cursor.fetchall()
+            if posts is None:
+                return render_template('feed.html', status='No posts to display.')
+            return render_template('feed.html', posts=posts)
 
-    return render_template('login.html')
+
+    return render_template('login.html')  # only show login fields..
 
 
 @app.route('/signup', methods=['GET', 'POST'])
@@ -63,7 +70,7 @@ def signup():
         response = validate(name, username, passwd)
         if response == 1:
             return redirect(url_for('members'), code=302)
-        flash('Some fields too short!')
+        flash('Some fields too short!', 'Invalid')
         return render_template('signup.html')
 
     if request.method == 'GET':

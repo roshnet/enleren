@@ -11,8 +11,8 @@
 
     <div id="login-form" class="some-bootstrap-class">
         <form action="{{ url_for('login') }}" method="POST">
-            {% if prev_username %}
-                <input type="text" name="username" value="{{ prev_username }}" /><br/>                
+            {% if prev_uname %}
+                <input type="text" name="username" value="{{ prev_uname }}"/><br/>
             {% else %}
                 <input type="text" name="username" placeholder="Username"/><br/>
             {% endif %}
