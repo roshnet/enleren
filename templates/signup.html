@@ -1,17 +1,33 @@
 {% extends "index.html" %}
 
 {% block signup %}
-    
-    <div class="alert alert-danger">
-        {{ errmsg }}
-    </div>
-    <div id="signup-form" class="some-bootstrap-class">
-        <form action="{{ url_for('signup') }}" method="POST">
+
+    <div class="some-bootstrap-class-for-form">
+    {% if valid_fields and invalid_fields %}
+        <form id="signup-form" action="{{ url_for('signup') }}" method="POST">
+            {% for field in valid_fields %}
+            <input type="{{field.type}}" name="{{field.name}}" value="{{field.value}}"/>
+            <br/>
+            {% endfor %}
+
+        <p>The invalid data you entered :</p>
+            {% for field in invalid_fields %}
+                <input type="{{field.type}}" name="{{field.name}}" placeholder="{{field.plcdr}}"/>
+                <br/>
+                <span class="some-alert-bootstrap-class"> {{ field.errmsg }} </span>
+            {% endfor %}
+            <input type="submit" name="submit" value="Create Account"/>
+        </form>
+    {% else %}
+        <form id="signup-form" action="{{ url_for('signup') }}" method="POST">
             <input type="text" name="name" placeholder="Your name" /><br/>
             <input type="text" name="username" placeholder="Set a username"><br/>
             <input type="password" name="passwd" placeholder="Set a password"/><br/>
-            <input type="submit" name="submit"/>
+            <input type="password" name="passwd-conf" placeholder="Confirm password"/><br/>
+            <input type="submit" name="submit" value="Create Account" />
         </form>
     </div>
+    {% endif %}
+
 
 {% endblock %}

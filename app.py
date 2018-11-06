@@ -6,11 +6,10 @@ from flask import redirect
 from flask import url_for
 from flask import session
 from flaskext.mysql import MySQL
-
+from werkzeug import generate_password_hash as hashgen
 # CUSTOM MODULES
 from extras.greetings import greeting
 from utils.validate import validate
-# from utils.db_ops import query
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'i4d1fr15s8a14'
@@ -21,10 +20,11 @@ app.config['MYSQL_DATABASE_DB'] = 'querist'
 
 mysql = MySQL()
 mysql.init_app(app)
-# cursor = mysql.connect().cursor()  # original
+# cursor = mysql.connect().cursor()  # original, obsolete.
 
 conn = mysql.connect()
 cursor = conn.cursor()
+
 
 @app.route('/')
 @app.route('/index')
@@ -40,24 +40,30 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         passwd = request.form['passwd']
-        # add an `if` to abort query execution if non-allowed chars present,
-        # thus preventing SQLIA.
-        cursor.execute("SELECT id,name FROM usercreds WHERE username='{}' AND password='{}';"
-                       .format(username, passwd))
+        # MUST add an `if` to abort query execution
+        # when non-allowed chars present, thus preventing SQLIA.
+        cursor.execute('''
+            SELECT id,name FROM usercreds
+            WHERE username='{}' AND password='{}';
+            '''.format(
+                       username,
+                       hashgen(hashgen(passwd, method='md5'), method='sha1')))
         match = cursor.fetchone()
         if match is None:
             return render_template('login.html',
-                                    title='Log In',
-                                    errmsg='Invalid credentials. Please try again.',
-                                    persist_uname=username)
+                                   title='Log In',
+                                   errmsg='''
+                                   Username or password not found. Try again
+                                   ''',
+                                   persist_uname=username)
         else:
-            # using else so that user does NOT login
+            # Using 'else' so that user does NOT login
             # if by any slightest chance `match` != None.
             # On login success:
             session['curr_uid'] = username
             return redirect(url_for('feed'))
 
-    return render_template('login.html')  # show login fields on GET..
+    return render_template('login.html', title='Log In')  # show login fields on GET request.
 
 
 @app.route('/signup', methods=['GET', 'POST'])
@@ -69,26 +75,40 @@ def signup():
         name = request.form['name']
         username = request.form['username']
         passwd = request.form['passwd']
-        valid = validate(name, username, passwd)
-        if valid == 1:
-            sql = "INSERT INTO usercreds (username,password,name) VALUES (%s,%s,%s);"
+        passwd_conf = request.form['passwd-conf']
+        resp, valid_fields, invalid_fields = validate(name,
+                                                      username,
+                                                      passwd,
+                                                      passwd_conf)
+        # validate() returns None on success; list of errors and
+        # a list of invalid field names on failure.
+        if resp is None:
+            sql = '''
+            INSERT INTO usercreds (username,password,name) VALUES (%s,%s,%s);
+            '''
             try:
-                cursor.execute(sql, (username, passwd, name))
+                cursor.execute(sql, (
+                                     username,
+                                     hashgen(hashgen(passwd, method='md5'),
+                                             method='sha1'),
+                                     name))
+                # Using two algos reduces success for rainbow tables to work.
                 conn.commit()
             except Exception as e:
                 return '''
                 Something weird happened. We will soon fix it.<br/>
-                Click <a href="{{url_for('signup')">here</a> to retry.
-                '''
+                Click <a href="{{url_for('signup')}}">here</a> to retry.
+                <br/>The error was : <br/><span style="color:red;">{}</span>
+                '''.format(e)
             session['curr_uid'] = username
-            return render_template('feed.html', )
-        else:
-            return render_template('signup.html',
-                                    title='Sign Up',
-                                    errmsg='Invalid fields!')
+            return redirect(url_for('feed'))
+        # When resp is not None, i.e. invalid input(s) :-
+        return render_template('signup.html',
+                               valid_fields=valid_fields,
+                               invalid_fields = invalid_fields,
+                               title='Sign Up')
 
-    if request.method == 'GET':
-        return render_template('signup.html')
+    return render_template('signup.html', title='Sign Up')  # Show signup-form on GET request.
 
 
 @app.route('/feed', methods=['GET', 'POST'])
@@ -98,12 +118,16 @@ def feed():
         posts = cursor.fetchall()
         if posts is not None:
             return render_template('feed.html',
-                                    title='Quick Feed',
-                                    posts=posts,
-                                    me=session['curr_uid'])
-        return render_template('feed.html', status='Sorry. No posts to show :(')
-    return render_template('login.html', errmsg='Please log in to continue.')
-    # if session not defined (or user not logged in):
+                                   title='Quick Feed',
+                                   posts=posts,
+                                   me=session['curr_uid'])
+        return render_template('feed.html',
+                               status='Sorry. No posts to show.',
+                               title='Quick Feed')
+    # If session is not defined, i.e user did not log in,
+    # and attmepts to directly view the feed :-
+    return render_template('login.html',
+                           errmsg='Please log in to continue.')
 
 
 if __name__ == '__main__':
