@@ -1,10 +1,11 @@
 {% extends "index.html" %}
 
 {% block signup %}
-    
+    {% if errmsg %}
     <div class="alert alert-danger">
         {{ errmsg }}
     </div>
+    {% endif %}
     <div id="signup-form" class="some-bootstrap-class">
         <form action="{{ url_for('signup') }}" method="POST">
             <input type="text" name="name" placeholder="Your name" /><br/>

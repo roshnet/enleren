@@ -71,17 +71,27 @@ def signup():
         passwd = request.form['passwd']
         valid = validate(name, username, passwd)
         if valid == 1:
-            sql = "INSERT INTO usercreds (username,password,name) VALUES (%s,%s,%s);"
-            try:
-                cursor.execute(sql, (username, passwd, name))
-                conn.commit()
-            except Exception as e:
-                return '''
-                Something weird happened. We will soon fix it.<br/>
-                Click <a href="{{url_for('signup')">here</a> to retry.
-                '''
-            session['curr_uid'] = username
-            return render_template('feed.html', )
+            # checking if username exists or not..
+            sql = "SELECT id FROM usercreds WHERE username='{}';"
+            cursor.execute(sql.format(username))
+            match = cursor.fetchone()
+            if match is None:
+                sql = "INSERT INTO usercreds (username,password,name) VALUES (%s,%s,%s);"
+                try:
+                    cursor.execute(sql, (username, passwd, name))
+                    conn.commit()
+                except Exception as e:
+                    return '''
+                    Something weird happened. We will soon fix it.<br/>
+                    Click <a href="{{url_for('signup')">here</a> to retry.
+                    '''
+                session['curr_uid'] = username
+                return redirect(url_for('feed'))
+            else:
+                # when username exists..
+                return render_template('signup.html',
+                                        title='Sign Up',
+                                        errmsg='Username taken')
         else:
             return render_template('signup.html',
                                     title='Sign Up',
@@ -101,9 +111,10 @@ def feed():
                                     title='Quick Feed',
                                     posts=posts,
                                     me=session['curr_uid'])
-        return render_template('feed.html', status='Sorry. No posts to show :(')
+        return render_template('feed.html', status='Sorry. No posts to show.')
+    # if session not defined (or user not logged in)..
     return render_template('login.html', errmsg='Please log in to continue.')
-    # if session not defined (or user not logged in):
+
 
 
 if __name__ == '__main__':
