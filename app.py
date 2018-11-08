@@ -6,11 +6,12 @@ from flask import redirect
 from flask import url_for
 from flask import session
 from flaskext.mysql import MySQL
-
+from werkzeug import generate_password_hash as hashgen
+from werkzeug import check_password_hash as chk
 # CUSTOM MODULES
 from extras.greetings import greeting
 from utils.validate import validate
-# from utils.db_ops import query
+
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'i4d1fr15s8a14'
@@ -21,15 +22,18 @@ app.config['MYSQL_DATABASE_DB'] = 'querist'
 
 mysql = MySQL()
 mysql.init_app(app)
-# cursor = mysql.connect().cursor()  # original
 
 conn = mysql.connect()
 cursor = conn.cursor()
 
+# custom variables..
+logged_in = False  # default, logged out.
+
+
 @app.route('/')
 @app.route('/index')
 def index():
-    return render_template('index.html', greeting=greeting)
+    return render_template('index.html', greeting=greeting, title='Home')
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -42,22 +46,36 @@ def login():
         passwd = request.form['passwd']
         # add an `if` to abort query execution if non-allowed chars present,
         # thus preventing SQLIA.
-        cursor.execute("SELECT id,name FROM usercreds WHERE username='{}' AND password='{}';"
-                       .format(username, passwd))
+        sql = "SELECT username,password FROM usercreds WHERE username='{}';"
+        cursor.execute(sql.format(username))
         match = cursor.fetchone()
-        if match is None:
+        if match is not None:
+            _passwd = match[1]  # hashed pswd..
+            if not chk(_passwd, passwd):
+                return render_template('login.html',
+                                        title='Log In',
+                                        errmsg='Invalid credentials. Please try again.',
+                                        persist_uname=username)
+            else:
+                # using else so that user does NOT login
+                # if by any slightest chance `match` != None.
+                # On login success:
+                session['curr_uid'] = username
+                global logged_in; logged_in = True
+                return redirect(url_for('feed'))
+        elif match is None:
             return render_template('login.html',
                                     title='Log In',
                                     errmsg='Invalid credentials. Please try again.',
                                     persist_uname=username)
-        else:
-            # using else so that user does NOT login
-            # if by any slightest chance `match` != None.
-            # On login success:
-            session['curr_uid'] = username
-            return redirect(url_for('feed'))
 
-    return render_template('login.html')  # show login fields on GET..
+    if request.method == 'GET':
+        errmsg = request.args.get('errmsg')
+        return render_template('login.html',
+                                errmsg=errmsg,
+                                title='Log In')
+
+
 
 
 @app.route('/signup', methods=['GET', 'POST'])
@@ -78,7 +96,9 @@ def signup():
             if match is None:
                 sql = "INSERT INTO usercreds (username,password,name) VALUES (%s,%s,%s);"
                 try:
-                    cursor.execute(sql, (username, passwd, name))
+                    cursor.execute(sql, (username,
+                                         hashgen(passwd, method='sha1'),
+                                         name))
                     conn.commit()
                 except Exception as e:
                     return '''
@@ -86,24 +106,26 @@ def signup():
                     Click <a href="{{url_for('signup')">here</a> to retry.
                     '''
                 session['curr_uid'] = username
+                global logged_in; logged_in = True
                 return redirect(url_for('feed'))
             else:
                 # when username exists..
                 return render_template('signup.html',
                                         title='Sign Up',
-                                        errmsg='Username taken')
+                                        errmsg='Username unavailable')
         else:
             return render_template('signup.html',
                                     title='Sign Up',
                                     errmsg='Invalid fields!')
-
     if request.method == 'GET':
-        return render_template('signup.html')
+        return render_template('signup.html', title='Sign Up')
+
+
 
 
 @app.route('/feed', methods=['GET', 'POST'])
 def feed():
-    if session['curr_uid']:
+    if logged_in:
         cursor.execute("SELECT author,body FROM posts;")
         posts = cursor.fetchall()
         if posts is not None:
@@ -111,9 +133,12 @@ def feed():
                                     title='Quick Feed',
                                     posts=posts,
                                     me=session['curr_uid'])
-        return render_template('feed.html', status='Sorry. No posts to show.')
-    # if session not defined (or user not logged in)..
-    return render_template('login.html', errmsg='Please log in to continue.')
+        return render_template('feed.html',
+                                status='Sorry. No posts to show.',
+                                title='Quick Feed')
+    # if user not logged in..
+    return redirect(url_for('login',
+                            errmsg='You must log in to continue.'))
 
 
 

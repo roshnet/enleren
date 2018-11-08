@@ -1,10 +1,12 @@
 {% extends "index.html" %}
 
 {% block login %}
-
+    
+    {% if errmsg %}
     <div class="alert alert-danger">
         {{ errmsg }}
     </div>
+    {% endif %}
     <div id="login-form" class="some-bootstrap-class">
         <form action="{{ url_for('login') }}" method="POST">
             {% if persist_uname %}
