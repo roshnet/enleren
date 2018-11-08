@@ -11,14 +11,14 @@ from werkzeug import check_password_hash as chk
 # CUSTOM MODULES
 from extras.greetings import greeting
 from utils.validate import validate
-
+from db_config import db
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'i4d1fr15s8a14'
-app.config['MYSQL_DATABASE_HOST'] = 'localhost'
-app.config['MYSQL_DATABASE_USER'] = 'root'
-app.config['MYSQL_DATABASE_PASSWORD'] = 'aaaaa'
-app.config['MYSQL_DATABASE_DB'] = 'querist'
+app.config['MYSQL_DATABASE_HOST'] = db['host']
+app.config['MYSQL_DATABASE_USER'] = db['user']
+app.config['MYSQL_DATABASE_PASSWORD'] = db['password']
+app.config['MYSQL_DATABASE_DB'] = db['name']
 
 mysql = MySQL()
 mysql.init_app(app)
